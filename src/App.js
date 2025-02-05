@@ -1,29 +1,97 @@
 // App.js
-import React, { useRef, useState } from "react";
-import Grid from "./components/Grid";
-import Message from "./components/Message";
+import React, { useEffect, useRef, useState } from "react";
 import NewGameButton from "./components/NewGameButton";
-import { WORDS } from "./Utils/words";
-import { isValidWord, getFeedback } from "./Utils/gameLogic";
+import {
+  threeLetterWords,
+  fourLetterWords,
+  fiveLetterWords,
+} from "./Utils/words";
 import "./App.css";
+
 const App = () => {
   const [guesses, setGuesses] = useState([]);
   const [attemptsRemaining, setAttemptsRemaining] = useState(6);
-  const [targetWord, setTargetWord] = useState(
-    WORDS[Math.floor(Math.random() * WORDS.length)]
-  );
+  const [orginalWord, setOrginalWord] = useState("");
+  const [randomAlphabets, setRandomAlphabets] = useState("");
+  const [predictedWord, setPredictedWord] = useState("");
+  const [gameSuccess, setGameSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [level, setLevel] = useState({
-    level: "easy",
+    level: "no",
     length: 3,
   });
   const [gameStatus, setGameStatus] = useState(false);
   const homeRefs = useRef([]);
   const startNewGame = () => {
     setGameStatus(true);
+    setGameSuccess(false);
+  };
+
+  useEffect(() => {
+    setLoading(true);
+    const randomNumber = Math.round(Math.random() * 100);
+    let localGetWord = "";
+    if (level.length === 3) {
+      localGetWord = threeLetterWords[randomNumber];
+      setOrginalWord(localGetWord);
+    } else if (level.length === 4) {
+      localGetWord = fourLetterWords[randomNumber];
+      setOrginalWord(localGetWord);
+    } else if (level.length === 5) {
+      localGetWord = fiveLetterWords[randomNumber];
+      setOrginalWord(localGetWord);
+    } else {
+      localGetWord = "";
+      setOrginalWord("");
+      setGameStatus(false);
+    }
+    if (localGetWord) {
+      const { modifiedWord, randomAlphabetsString } =
+        getRandomAlphabets(localGetWord);
+      setPredictedWord(modifiedWord);
+      setRandomAlphabets(randomAlphabetsString);
+    }
+    setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+  }, [level]);
+
+  const getRandomAlphabets = (word) => {
+    const wordLength = word.length;
+
+    // Convert word into an array of characters
+    const letters = word.split("");
+
+    // Generate a random index to replace with _
+    const randomIndex = Math.floor(Math.random() * wordLength);
+
+    // Create a modified version of the word with _ at the random index
+    const modifiedWord = [...letters];
+    const missingLetter = modifiedWord[randomIndex];
+    modifiedWord[randomIndex] = "_";
+
+    // Generate random letters for the rest of the string (to fill the same length)
+    const randomAlphabets = [];
+    while (randomAlphabets.length < wordLength) {
+      const randomLetter = String.fromCharCode(
+        97 + Math.floor(Math.random() * 26)
+      ); // Random alphabet
+      if (randomAlphabets.length === randomIndex) {
+        randomAlphabets.push(missingLetter); // Ensure the missing letter is in the same position
+      } else {
+        randomAlphabets.push(randomLetter); // Fill the other positions with random letters
+      }
+    }
+
+    // Return both the modified word and the random alphabets string
+    return {
+      modifiedWord: modifiedWord.join(""),
+      randomAlphabetsString: randomAlphabets.join(""),
+    };
   };
 
   return (
-    <div className="App">
+    <div className="App" style={{position:"relative"}} >
       <div
         style={{
           display: "flex",
@@ -44,7 +112,7 @@ const App = () => {
         </h1>
       </div>
 
-      {gameStatus && (
+      {gameStatus  && (
         <div
           style={{
             width: "100%",
@@ -52,7 +120,7 @@ const App = () => {
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
-            flexDirection:"column"
+            flexDirection: "column",
           }}
         >
           <div
@@ -63,69 +131,94 @@ const App = () => {
               backgroundColor: "rgba(225,225,225,.6)",
               display: "flex",
               position: "relative",
-              justifyContent:"center",
-              alignItems:"center"
+              justifyContent: "center",
+              alignItems: "center",
             }}
           >
-            {Array(level.length) // Creates 6 elements in an arc
-              .fill("A")
-              .map((data, index) => {
-                let angle = Math.PI * (index / (level.length - 1)); // Spreads elements from 0 to π (half-circle)
-                let radius = 200; // Controls arc size
-                let centerX = 250; // Center of the parent div
-                let centerY = 250;
+            {randomAlphabets?.split("").map((data, index) => {
+              let angle = Math.PI * (index / (level.length - 1)); // Spreads elements from 0 to π (half-circle)
+              let radius = 200; // Controls arc size
+              let centerX = 250; // Center of the parent div
+              let centerY = 250;
 
-                return (
+              return (
+                <div
+                  key={index}
+                  style={{
+                    width: "100px",
+                    height: "100px",
+                    borderRadius: "50%",
+                    position: "absolute",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    top: centerY - radius * Math.sin(angle) - 50, // Offset by half height
+                    left: centerX + radius * Math.cos(angle) - 50, // Offset by half width
+                  }}
+                  onClick={() => {
+                    if (data) {
+                      setPredictedWord((state) => {
+                        let old = state;
+                        old = old.replace("_", data);
+                        console.log(old, orginalWord);
+                        if (old === orginalWord) {
+                          setGameSuccess(true);
+                          setGameStatus(false);
+                          return old;
+                        } else {
+                          return state;
+                        }
+                      });
+                    }
+                  }}
+                >
                   <div
-                    key={index}
                     style={{
                       width: "100px",
                       height: "100px",
                       borderRadius: "50%",
+                      backgroundColor: "rgba(225,225,225,.6)",
+                      filter: "blur(10px)",
                       position: "absolute",
-                      display: "flex",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      top: centerY - radius * Math.sin(angle) - 50, // Offset by half height
-                      left: centerX + radius * Math.cos(angle) - 50, // Offset by half width
+                      boxShadow: "1px 1px 100px white",
+                      zIndex: 0,
                     }}
-                  >
-                    <div
-                      style={{
-                        width: "100px",
-                        height: "100px",
-                        borderRadius: "50%",
-                        backgroundColor: "rgba(225,225,225,.6)",
-                        filter: "blur(10px)",
-                        position: "absolute",
-                        boxShadow: "1px 1px 100px white",
-                        zIndex: 0,
-                      }}
-                    />
-                    <input
-                      style={{
-                        zIndex: 1,
-                        width: "30px",
-                        height: "30px",
-                        border: "none",
-                        backgroundColor: "transparent",
-                        fontSize: "24px",
-                        textAlign: "center",
-                        borderRadius: "30px",
-                        color: "white",
-                        fontWeight: "bolder",
-                        fontFamily: "monospace",
-                      }}
-                      value={data}
-                    />
-                  </div>
-                );
-              })}
+                  />
+                  <span
+                    style={{
+                      zIndex: 1,
+                      width: "30px",
+                      height: "30px",
+                      border: "none",
+                      backgroundColor: "transparent",
+                      fontSize: "24px",
+                      textAlign: "center",
+                      borderRadius: "30px",
+                      color: "white",
+                      fontWeight: "bolder",
+                      fontFamily: "monospace",
+                      cursor: "pointer",
+                    }}
+                    children={data}
+                  />
+                </div>
+              );
+            })}
 
-<div style={{display:"flex",flexDirection:"row",position:"absolute",bottom:10,backgroundColor:"red",width:"90%",borderRadius:30,justifyContent:"center",alignItems:"center"}} >
-            {Array(level.length) // Creates 6 elements in an arc
-              .fill("A")
-              .map((data, index) => {
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                position: "absolute",
+                bottom: 10,
+                backgroundColor: "red",
+                width: "90%",
+                borderRadius: 30,
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              {predictedWord?.split("")?.map((data, index) => {
                 return (
                   <div
                     key={index}
@@ -150,7 +243,7 @@ const App = () => {
                         zIndex: 0,
                       }}
                     />
-                    <input
+                    <span
                       style={{
                         zIndex: 1,
                         width: "30px",
@@ -163,19 +256,19 @@ const App = () => {
                         color: "white",
                         fontWeight: "bolder",
                         fontFamily: "monospace",
+                        cursor: "pointer",
                       }}
-                      value={data}
+                      children={data}
                     />
                   </div>
                 );
               })}
+            </div>
           </div>
-          </div>
-          
         </div>
       )}
 
-      {!gameStatus && (
+      {!gameStatus && !gameSuccess  && (
         <div
           style={{
             width: "100%",
@@ -318,6 +411,50 @@ const App = () => {
           <div>
             <NewGameButton onClick={startNewGame} />
           </div>
+        </div>
+      )}
+
+      {gameSuccess && (
+        <div
+          style={{
+            width: "100%",
+            height: "90%",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "center",
+            rowGap: "10px",
+          }}
+        >
+          <h1 style={{ color: "green" }}>SUCCESS</h1>
+          <NewGameButton
+            onClick={() => {
+              setGameStatus(false);
+              setGameSuccess(false);
+              window.location.reload();
+            }}
+          />
+        </div>
+      )}
+
+      {loading && (
+        <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          position:"absolute",
+          zIndex:999,
+          top:0,
+          backgroundColor:"rgba(225,225,225,.4)",
+        }}
+        >
+          <span>
+            Loading...
+          </span>
         </div>
       )}
     </div>
